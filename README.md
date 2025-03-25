@@ -2,6 +2,7 @@
 
 
 # nonebot_plugin_jmgetput
+一款基于NoneBot2和JMComic-Crawler-Python的插件，用来上传文件到qq群
 A plugin based on NoneBot2 and JMComic-Crawler-Python to upload jmcomic files or files in qq group
 
 基于 [NoneBot2](https://github.com/nonebot/nonebot2)
@@ -23,4 +24,5 @@ https://github.com/hect0x7/JMComic-Crawler-Python
 ```
 pip install .
 ```
+通过/上传群文件 path/to/file，上传文件到qq群，要修改代码中路径的位置
 通过在群聊中发送/jm xxxxxx指令，来下载对应的文件
