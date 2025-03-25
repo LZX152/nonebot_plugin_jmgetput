@@ -1,8 +1,8 @@
 <div align="center">
 
-
 # nonebot_plugin_jmgetput
 一款基于NoneBot2和JMComic-Crawler-Python的插件，用来上传文件到qq群
+
 A plugin based on NoneBot2 and JMComic-Crawler-Python to upload jmcomic files or files in qq group
 </div>
 
