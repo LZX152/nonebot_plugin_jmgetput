@@ -7,11 +7,9 @@ A plugin based on NoneBot2 and JMComic-Crawler-Python to upload jmcomic files or
 </div>
 
 基于 
-<div align="center">
-[NoneBot2](https://github.com/nonebot/nonebot2)
-https://github.com/Yuelioi/nonebot-plugin-backup
-https://github.com/hect0x7/JMComic-Crawler-Python
-</div>
+[NoneBot2](https://github.com/nonebot/nonebot2)  
+https://github.com/Yuelioi/nonebot-plugin-backup  
+https://github.com/hect0x7/JMComic-Crawler-Python  
 的插件，来上传QQ群文件，同时集成了jm指令，用来下载jm中的资源并发送到QQ群聊中
 
 ## 用途
@@ -39,3 +37,10 @@ pip install .
 ## 计划与打算
 仓促的实现了几个功能，项目中还有许多不足。在接下来的更新中会继续改进不足、优化代码、添加新的功能。  
 本人代码经验很少，希望大佬能够提供宝贵的建议，第一次编写项目程序  
+<<<<<<< HEAD
+=======
+目前打算在v1.0.6中，更新混乱的路径问题，包括下载目录和上传目录
+
+## 效果图
+![image](picture/1.png)
+>>>>>>> 84a8e044b3c6e8f1adf031752449b97ea0f2dccb
