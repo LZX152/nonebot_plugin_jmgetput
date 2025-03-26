@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="nonebot_plugin_jmgetput",
-    version="1.0.5",
-    author="Llli",
+    version="1.0.6",
+    author="DemonLee",
     author_email="1712616512@qq.com",
     description="A plugin based on NoneBot2 to upload jmcomic files or files in qq group.",
     long_description=long_description,
@@ -14,6 +14,9 @@ setup(
     url="",
     project_urls={
         "Bug Tracker": "",
+    },
+    package_data={
+        "nonebot_plugin_jmgetput": ["*.yml"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

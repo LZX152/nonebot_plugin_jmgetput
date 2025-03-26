@@ -1,42 +1,26 @@
 from nonebot import get_driver, logger, on_shell_command, on_regex
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
-from nonebot.params import RegexMatched
-from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
-from collections import deque
 from nonebot.adapters.onebot.v11 import  MessageEvent
 from nonebot.exception import FinishedException
-
 import re
 import jmcomic
 from jmcomic import JmModuleConfig, DirRule
-from jmcomic import Img2pdfPlugin
-
-import requests
 import os
-import time
-from pathlib import Path
-
 from uvicorn.loops import asyncio
-from jmcomic import JmModuleConfig
-
 from fuzzywuzzy import fuzz
 from pathlib import Path
+import yaml
 
-# 你需要写一个函数，把字段名作为key，函数作为value，加到JmModuleConfig.AFIELD_ADVICE这个字典中
-JmModuleConfig.AFIELD_ADVICE['myname'] = lambda album: f'[{album.id}] {album.title}'
+# 读取配置文件
+with open("./download.yml", "r", encoding="utf-8") as f:
+    config = yaml.safe_load(f)
 
-backup_group = get_driver().config.dict().get('backup_group', [])
-backup_command = get_driver().config.dict().get('backup_command', "备份群文件")
-backup_maxsize = get_driver().config.dict().get('backup_maxsize', 300)
-backup_minsize = get_driver().config.dict().get('backup_minsize', 0.01)
-backup_temp_files = get_driver().config.dict().get('backup_temp_files', True)
-backup_temp_file_ignore = get_driver().config.dict().get(
-    'backup_temp_file_ignore', [".gif", ".png", ".jpg", ".mp4"])
+# 动态设置路径
+UPLOAD_BASE_DIR = Path(config["paths"]["upload_dir"])
+OPTION_FILE = Path(config["paths"]["option_file"])  # 保持字符串或转为 Path
 
-
-linker_parser = ArgumentParser(add_help=False)
-linker = on_shell_command(backup_command, parser=linker_parser, priority=1)
+ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.png'}  # 可选：限制上传文件类型
 
 upload_command = get_driver().config.dict().get('upload_command', "上传群文件")
 upload_parser = ArgumentParser(add_help=False)
@@ -97,43 +81,6 @@ async def handle_jm_download(bot: Bot, event: MessageEvent):
         await jm_download.finish(f"⚠️ 下载失败: {str(e)}")
         return
 
-async def SaveToDisk(bot, ff, fdpath, EIF, gid):
-    fname = ff["file_name"]
-    fid = ff["file_id"]
-    fbusid = ff["busid"]
-    fsize = ff["file_size"]
-    fpath = Path(fdpath, fname)
-
-    if fsize/1024/1024 < backup_minsize:
-        return
-
-    if fsize/1024/1024 > backup_maxsize:
-        EIF.fdtoolarge.append(
-            EIF.fdnames[EI.fdindex] + "/" + fname)
-        return
-
-    if not Path(fpath).exists():
-        try:
-
-            finfo = await bot.get_group_file_url(group_id=gid, file_id=str(fid), bus_id=int(fbusid))
-            url = finfo['url']
-            req = requests.get(url)
-
-            if not Path(fdpath).exists():
-                os.makedirs(fdpath)
-            with open(fpath, 'wb') as mfile:
-                mfile.write(req.content)
-            EIF.fsizes += fsize
-            EIF.fsuccess += 1
-        except Exception as e:
-            EIF.fbroken.append(fdpath + "/" + fname)
-            print(e)
-            logger.debug("文件获取不到/已损坏:" + fdpath + "/" + fname)
-    else:
-        EIF.fsizes += Path(fpath).stat().st_size
-        EIF.fjump += 1
-
-
 async def createFolder(bot, root_dir, gid):
     root = await bot.get_group_root_files(group_id=gid)
     folders = root.get("folders")
@@ -148,29 +95,12 @@ async def createFolder(bot, root_dir, gid):
                     await bot.create_group_file_folder(
                         group_id=gid, name=fd_name, parent_i="/")
 
-
-async def upload_files(bot, gid, folder_id, root_dir):
-    group_root = await bot.get_group_files_by_folder(group_id=gid, folder_id=folder_id)
-    files = group_root.get("files")
-    filenames = []
-    if files:
-        filenames = [ff["file_name"] for ff in files]
-    if os.path.exists(root_dir):
-        for entry in os.scandir(root_dir):
-            if entry.is_file() and entry.name not in filenames:
-                absolute_path = Path(root_dir).resolve().joinpath(entry.name)
-
-                await bot.upload_group_file(
-                    group_id=gid, file=str(absolute_path), name=entry.name, folder=folder_id)
-
-EI = EventInfo()
-
 async def upload_file_from_message(bot: Bot, event: GroupMessageEvent, file_path: str, folder_id: str = "/"):
     """根据用户提供的文件路径或URL上传文件到群文件"""
     try:
         threshold = 80  # 相似度阈值（0~100）
 
-        pdf_dir = Path("E:/tools/image2pdf-main/books/pdf")
+        pdf_dir = Path(UPLOAD_BASE_DIR)
         matched_files = []
         for file in pdf_dir.glob("*.pdf"):
             ratio = fuzz.ratio(file_path, file.name)
@@ -199,68 +129,8 @@ async def upload_file_from_message(bot: Bot, event: GroupMessageEvent, file_path
     except Exception as e:
         pass
 
-@linker.handle()
-async def link(bot: Bot, event: GroupMessageEvent, state: T_State):
-    EI.init()
-    gid = event.group_id
-    if str(gid) in backup_group or backup_group == []:
-        args = vars(state.get("_args"))
-        logger.debug(args)
 
-        await bot.send(event, "备份中,请稍后…(不会备份根目录文件,请把重要文件放文件夹里)")
-        tstart = time.time()
-        root = await bot.get_group_root_files(group_id=gid)
-        folders = root.get("folders")
-        if backup_temp_files:
-            files = root.get("files")
-            fdpath = "./qqgroup/" + str(event.group_id)
-            if files:
-                for ff in files:
-                    suf = Path(ff["file_name"]).suffix
-                    if suf in backup_temp_file_ignore:
-                        continue
 
-                    await SaveToDisk(bot, ff, fdpath, EI, gid)
-
-        # 广度优先搜索
-        dq = deque()
-
-        if folders:
-            dq.extend([i["folder_id"] for i in folders])
-            EI.fdnames.extend([i["folder_name"] for i in folders])
-
-        while dq:
-            EI.fdindex += 1
-            _ = dq.popleft()
-            logger.debug("下一个搜索的文件夹：" + _)
-            root = await bot.get_group_files_by_folder(group_id=gid, folder_id=_)
-
-            fdpath = "./qqgroup/" + \
-                str(gid) + "/" + EI.fdnames[EI.fdindex]
-
-            file = root.get("files")
-
-            if file:
-                for ff in file:
-                    await SaveToDisk(bot, ff, fdpath, EI, gid)
-
-        if len(EI.fdtoolarge) == 0:
-            EI.fdtoolarge = "无"
-        else:
-            EI.fdtoolarge = "\n".join(EI.fdtoolarge)
-
-        if len(EI.fbroken) == 0:
-            EI.fbroken = ""
-        else:
-            EI.fbroken = "检测到损坏文件:" + '\n'.join(EI.fbroken)
-
-        EI.fsizes = round(EI.fsizes/1024/1024, 2)
-        tsum = round(time.time()-tstart, 2)
-
-        await linker.finish("此次备份耗时%2d秒; 共备份%d个文件,跳过已备份%d个文件, 累计备份大小%.2f M,\n未备份大文件列表(>%dm):\n%s\n%s" % (tsum, EI.fsuccess, EI.fjump, EI.fsizes, backup_maxsize, EI.fdtoolarge, EI.fbroken))
-
-UPLOAD_BASE_DIR = Path(r"E:\tools\image2pdf-main\books")
-ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.png'}  # 可选：限制上传文件类型
 @upload.handle()
 async def handle_upload(bot: Bot, event: MessageEvent):
     """统一入口函数，控制整个上传流程"""
@@ -301,7 +171,7 @@ async def parse_user_input(event: MessageEvent) -> str:
 async def validate_file_path(rel_path: str) -> Path:
     """验证并返回安全的绝对路径"""
     try:
-        base_dir = Path(r"E:\tools\image2pdf-main\books\pdf")
+        base_dir = Path(UPLOAD_BASE_DIR)
         target_path = (base_dir / rel_path).resolve()
         
         # 安全校验
@@ -391,7 +261,7 @@ async def download_jm_album(bot: Bot,jm_code: str) -> Path:
 
     try:
         # 加载配置
-        option = jmcomic.JmOption.from_file("E:/tools/image2pdf-main/config.yml")
+        option = jmcomic.JmOption.from_file(OPTION_FILE)
         # 下载相册
         result = jmcomic.download_album(jm_code, option)
         album = result[0] if isinstance(result, tuple) else result  # 兼容新旧版本
