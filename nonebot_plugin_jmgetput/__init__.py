@@ -12,13 +12,9 @@ from fuzzywuzzy import fuzz
 from pathlib import Path
 import yaml
 
-# 读取配置文件
-with open("./download.yml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+UPLOAD_BASE_DIR = "E:/tools/image2pdf-main/books/pdf"
+OPTION_FILE = "E:/tools/image2pdf-main/config.yml"  # 保持字符串或转为 Path
 
-# 动态设置路径
-UPLOAD_BASE_DIR = Path(config["paths"]["upload_dir"])
-OPTION_FILE = Path(config["paths"]["option_file"])  # 保持字符串或转为 Path
 
 ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.png'}  # 可选：限制上传文件类型
 
@@ -116,6 +112,7 @@ async def upload_file_from_message(bot: Bot, event: GroupMessageEvent, file_path
             await bot.send(event, f"文件 {file_path} 不存在！")
             return False
         else:
+            #await bot.send(event, f"⏳ 正在上传: {file_path}")
             await bot.send(event, f"⏳ 正在上传: {file_path}")
 
         # 上传文件
@@ -282,8 +279,12 @@ async def upload_jm_to_group(bot: Bot, event: MessageEvent, pdf_path: Path):
     try:
         success = await upload_file_from_message(bot, event, str(pdf_path))
 
-        msg = f"✅ 上传成功: {pdf_path}" if success else f"❌ 上传失败: {pdf_path}"
-        await jm_download.finish(msg)
+        #msg = f"✅ 上传成功: {pdf_path}" if success else f"❌ 上传失败: {pdf_path}"
+        msg = f"✅ 上传成功 " if success else f"❌ 上传失败 "
 
     except Exception as e:
-        logger.error(f"JM上传失败: {e}")
+
+        logger.exception(f"JM上传失败: {type(e).__name__}:{str(e)}")
+        msg = f"⚠️ 上传异常: {str(e)}"
+    finally:
+        await jm_download.finish(msg)
